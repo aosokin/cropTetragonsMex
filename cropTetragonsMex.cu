@@ -135,19 +135,27 @@ void mexFunction(int nlhs, mxArray *plhs[],
 		const float *pSrc[3] = { d_inputImage, d_inputImage + imageHeight * imageWidth, d_inputImage + 2 * imageHeight * imageWidth};
 		float *pDst[3] = { curOutput, curOutput + targetHeight * targetWidth, curOutput + 2 * targetHeight * targetWidth};
 
-
-		NPP_CHECK_NPP( nppiWarpPerspectiveQuad_32f_P3R (
-			pSrc, // const Npp32f ∗ pSrc[3], 
-			nppiImageSize, // NppiSize oSrcSize, 
-			imageStep, // int nSrcStep, 
-			sourceRect, // NppiRect oSrcROI, 
-			aSrcQuad, // const double aSrcQuad[4][2], 
-			pDst, // Npp32f ∗ pDst[3], 
-			targetStep, // int nDstStep, 
-			targetRect, // NppiRect oDstROI, 
-			aDstQuad, // const double aDstQuad[4][2], 
-			NPPI_INTER_CUBIC //int eInterpolation
-			) );
+        // When NPP_CHECK_NPP catches an error it throws an exception
+        // If the exception is not caught, we can get a memory leak on a GPU
+        try{
+            NPP_CHECK_NPP( nppiWarpPerspectiveQuad_32f_P3R (
+                pSrc, // const Npp32f ∗ pSrc[3], 
+                nppiImageSize, // NppiSize oSrcSize, 
+                imageStep, // int nSrcStep, 
+                sourceRect, // NppiRect oSrcROI, 
+                aSrcQuad, // const double aSrcQuad[4][2], 
+                pDst, // Npp32f ∗ pDst[3], 
+                targetStep, // int nDstStep, 
+                targetRect, // NppiRect oDstROI, 
+                aDstQuad, // const double aDstQuad[4][2], 
+                NPPI_INTER_CUBIC //int eInterpolation
+                ) );
+        } catch (...) {
+            // free GPU memory
+            mxGPUDestroyGPUArray(outputData);
+            mxGPUDestroyGPUArray(inputImage);
+            throw;
+        }
 }
 	
 	*cropsOutPtr = mxGPUCreateMxArrayOnGPU(outputData);
